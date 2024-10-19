@@ -2,28 +2,22 @@ import torch
 import argparse
 import numpy as np
 
-from models import GCN
+from models import GCN, ChebNet
 from torch_geometric.loader import DataLoader
 from torch_geometric.datasets import LRGBDataset
 from utils import plot_results, compute_confidence_intervals, run_experiment
 
 
+### TODO: adapt to different model types and datasets
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='TODO')
-    parser.add_argument('--model_type', type=str, default='GCN', help='Type of model to use (e.g., GCN)')
-    parser.add_argument('--dataset_name', type=str, default='peptides', help='Name of the dataset to use')
-    parser.add_argument('--runs', type=int, default=5, help='Number of runs to do')
+    parser.add_argument('--model_name', type=str, default='GCN', help='Model name (e.g., GCN)')
+    parser.add_argument('--dataset', type=str, default='peptides', help='Dataset name (e.g., peptides)')
+    parser.add_argument('--number_runs', type=int, default=5, help='Number of runs to do')
     parser.add_argument('--epochs', type=int, default=5, help='Number of epoch for each run')
     args = parser.parse_args()
     
     device = torch.device("cpu" if torch.backends.mps.is_available() else "cpu")
-
-    ### TODO: adapt to different model types and datasets
-    # # Initialize model
-    # if args.model_type == 'GCN':
-    #     dataset = load_dataset(args.dataset_name)
-    # else:
-    #     raise ValueError(f"Model type {args.model_type} not supported")
 
 
     dataset = LRGBDataset(root="./data/LRGB", name="Peptides-func")
@@ -42,7 +36,15 @@ if __name__ == "__main__":
 
     for i in range(n_runs):
         print(f'Run {i+1}/{n_runs}')
-        model = GCN(dataset.num_node_features, hidden_channels=64, out_channels=dataset.num_classes).to(device)
+        
+        if args.model_name == 'GCN':
+            model = GCN(dataset.num_node_features, hidden_channels=64, out_channels=dataset.num_classes).to(device)
+        if args.model_name == 'ChebNet':
+            model = ChebNet(dataset.num_node_features, hidden_channels=64, out_channels=dataset.num_classes).to(device)
+        else:
+            raise ValueError(f"Model type {args.model_type} not supported")
+            
+        #model = GCN(dataset.num_node_features, hidden_channels=64, out_channels=dataset.num_classes).to(device)
         train_acc, val_acc, dirichlet_energy = run_experiment(train_loader, val_loader, train_loader_for_energy, model, device, epochs=args.epochs)
         
         train_accuracies_runs.append(train_acc)
@@ -63,4 +65,4 @@ if __name__ == "__main__":
     print(f"Val Accuracy Mean: {val_acc_mean[-1]:.4f} ± {val_acc_ci[-1]:.4f}")
     print(f"Dirichlet Energy Mean: {energy_mean[-1]:.4f} ± {energy_ci[-1]:.4f}")
 
-    plot_results(energy_mean, energy_ci, args.model_type, args.dataset_name)
+    plot_results(energy_mean, energy_ci, args.model_name, args.dataset)
